@@ -1,0 +1,16 @@
+defaults:
+  - game: template
+  - strategy: template
+  - simulation: default
+  - reporting: default
+  - _self_
+  - optional experiment: null
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S-%f}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S-%f}
+    subdir: ${hydra.job.num}
