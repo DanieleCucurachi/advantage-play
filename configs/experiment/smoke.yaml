@@ -1,0 +1,6 @@
+# @package _global_
+
+# A small configuration preset, not an executable experiment yet.
+simulation:
+  episodes: 100
+  repetitions: 2

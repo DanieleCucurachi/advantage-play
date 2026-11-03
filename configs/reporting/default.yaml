@@ -1,0 +1,4 @@
+# Select game-specific outcome metrics when implementing the reporting layer.
+metrics: []
+confidence_level: 0.95
+save_raw_results: true
