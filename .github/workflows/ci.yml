@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call: # reused by release.yml so a tag can never ship without green checks
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint & format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Check lockfile is up to date
+        run: uv lock --check
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Ruff lint
+        run: uv run ruff check --output-format=github .
+      - name: Ruff format
+        run: uv run ruff format --check .
+
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Mypy
+        run: uv run mypy
+
+  test:
+    name: Test (py${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+        include:
+          - os: macos-latest
+            python-version: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Pytest
+        shell: bash
+        run: |
+          # Pull requests skip the long Monte Carlo tests; pushes to main and tags run everything.
+          MARKERS=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then MARKERS="not slow"; fi
+          uv run pytest -n auto -m "$MARKERS" \
+            --cov --cov-report=term-missing --cov-report=xml --junitxml=junit.xml
+      - name: Upload test reports
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            coverage.xml
+            junit.xml
+
+  docs:
+    name: Build docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked --group docs
+      - name: Sphinx (warnings are errors)
+        run: uv run sphinx-build -W --keep-going -b html docs docs/_build/html
+
+  build:
+    name: Build package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Validate metadata
+        run: uvx twine check --strict dist/*
+      - name: Smoke-test the wheel in a clean environment
+        run: |
+          uv venv "$RUNNER_TEMP/smoke"
+          uv pip install --python "$RUNNER_TEMP/smoke/bin/python" dist/*.whl
+          "$RUNNER_TEMP/smoke/bin/python" -c "import advantage_play; print(advantage_play.__version__)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  # Single required check for branch protection: add "CI ok" instead of listing every matrix job.
+  ci-ok:
+    name: CI ok
+    if: always()
+    needs: [lint, typecheck, test, docs, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        run: |
+          echo '${{ toJSON(needs) }}'
+          [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "false" ]

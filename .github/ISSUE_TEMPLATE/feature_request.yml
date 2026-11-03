@@ -1,0 +1,20 @@
+name: Feature / game / strategy request
+description: Propose a new game, rule variant, strategy, statistic or plot
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to add?
+    validations:
+      required: true
+  - type: textarea
+    id: rules
+    attributes:
+      label: Rules / definition
+      description: For a game or strategy, describe the rules or decision logic precisely (or link a source).
+  - type: textarea
+    id: output
+    attributes:
+      label: What result should it produce?
+      description: The statistic or comparison you want to learn from it (e.g. house edge ± CI, EV per hand).

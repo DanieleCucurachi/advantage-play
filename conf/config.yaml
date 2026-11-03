@@ -1,0 +1,25 @@
+# Root Hydra config. Compose experiments from config groups, e.g.
+#   python -m advantage_play game=blackjack strategy=basic simulation.n_episodes=1_000_000
+#   python -m advantage_play -m game=blackjack strategy=basic,hi_lo   # sweep strategies
+#
+# Groups live in sibling directories (game/, strategy/, simulation/, analysis/).
+# Uncomment each default as soon as the matching group has a config file.
+defaults:
+  - _self_
+  # - game: blackjack
+  # - strategy: basic
+  # - simulation: default
+  # - analysis: default
+
+# Master seed. Every episode/worker derives its own stream from it (SeedSequence.spawn),
+# so a run is reproducible regardless of the number of workers.
+seed: 0
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    chdir: false # keep the working directory stable; write artifacts to the run dir explicitly

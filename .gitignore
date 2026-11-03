@@ -1,0 +1,78 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+build/
+dist/
+wheels/
+.eggs/
+
+# --- Environments (uv) ---
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# --- Tooling caches ---
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.hypothesis/
+.ipynb_checkpoints/
+.tox/
+.nox/
+
+# --- Coverage ---
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# --- Hydra / experiment outputs ---
+outputs/
+multirun/
+.hydra/
+# Keep curated results by placing them in results/ and un-ignoring explicitly if needed.
+results/
+runs/
+*.log
+
+# --- Simulation artifacts ---
+*.parquet
+*.feather
+*.pkl
+*.npy
+*.npz
+# (re-include small fixtures used by tests)
+!tests/data/**
+
+# --- Notebooks ---
+# Outputs are stripped by nbstripout (see .pre-commit-config.yaml); checkpoints ignored above.
+
+# --- Editors / OS ---
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- AI assistant instructions & config (local, not shared) ---
+# Claude Code
+CLAUDE.md
+.claude/
+
+# ChatGPT / Codex and other agents
+AGENTS.md
+AGENTS_REVIEW.md
+.codex/
+
+# --- Docs build output ---
+docs/_build/
+docs/api/
