@@ -1,25 +1,28 @@
-# Root Hydra config. Compose experiments from config groups, e.g.
-#   python -m advantage_play game=blackjack strategy=basic simulation.n_episodes=1_000_000
-#   python -m advantage_play -m game=blackjack strategy=basic,hi_lo   # sweep strategies
+# Root Hydra config. Compose an experiment from config groups and plain values, e.g.
+#   python -m advantage_play                                  # all 5 strategies at one table
+#   python -m advantage_play players=solo_counting n_games=100000
+#   python -m advantage_play -m players=solo_random,solo_trivial,solo_counting   # sweep
 #
-# Groups live in sibling directories (game/, strategy/, simulation/, analysis/).
-# Uncomment each default as soon as the matching group has a config file.
+# Groups (sibling directories): game/ (rules), strategy/ (one file per strategy),
+# players/ (who sits at the table: a set of strategies labelled and ordered by seat).
 defaults:
   - _self_
-  # - game: blackjack
-  # - strategy: basic
-  # - simulation: default
-  # - analysis: default
+  - game: higher_lower
+  - players: head_to_head
 
-# Master seed. Every episode/worker derives its own stream from it (SeedSequence.spawn),
-# so a run is reproducible regardless of the number of workers.
+n_games: 10000
+confidence: 0.95 # level of the reported confidence intervals
+
+# Master seed. Game i always gets the same random stream (SeedSequence.spawn), so a run is
+# reproducible, and runs sharing a seed play identical deals (paired comparison).
 seed: 0
 
 hydra:
+  job:
+    name: advantage_play
+    chdir: false # keep the working directory stable; artifacts go to the run dir explicitly
   run:
     dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweep:
     dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
     subdir: ${hydra.job.num}
-  job:
-    chdir: false # keep the working directory stable; write artifacts to the run dir explicitly

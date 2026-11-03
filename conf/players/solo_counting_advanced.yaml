@@ -1,0 +1,4 @@
+# @package players
+# A single player going through the deck alone: measures the strategy's raw hit rate.
+defaults:
+  - /strategy@counting_advanced: counting_advanced

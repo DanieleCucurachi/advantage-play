@@ -34,9 +34,8 @@ dependencies = [
     "rich>=13.7",
 ]
 
-# Console entry points will be declared here once the CLI exists, e.g.:
-# [project.scripts]
-# advantage-play = "advantage_play.cli:main"
+[project.scripts]
+advantage-play = "advantage_play.cli:main"
 
 [project.urls]
 Repository = "https://github.com/OWNER/advantage-play"

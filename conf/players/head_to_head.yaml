@@ -1,0 +1,8 @@
+# @package players
+# One player per strategy, seated in this order. Seat order shifts scores (see README).
+defaults:
+  - /strategy@counting: counting
+  - /strategy@trivial: trivial
+  - /strategy@random: random
+  - /strategy@counting_advanced: counting_advanced
+  - /strategy@optimal_counting: optimal_counting

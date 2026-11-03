@@ -1,36 +1,38 @@
-# Architecture (planned)
-
-This is the intended design, to be refined as code lands. Nothing here is implemented yet.
+# Architecture
 
 ## Core abstractions
 
-| Concept      | Responsibility                                                                 |
-| ------------ | ------------------------------------------------------------------------------ |
-| `Card`/`Shoe`| 52-card model; one or many decks; seeded shuffle; penetration (cut card)       |
-| `Game`       | Rules as data: state, legal actions, transitions, payoff. Built from config    |
-| `Strategy`   | Maps the player's *observable* state (not hidden cards) to an action           |
-| `Simulator`  | Plays N episodes of `Game` with a `Strategy`; deterministic given the seed     |
-| `Analysis`   | Turns raw episode records into estimates, CIs, comparisons, plots              |
+| Concept      | Where                            | Responsibility                                                              |
+| ------------ | -------------------------------- | --------------------------------------------------------------------------- |
+| `Card`       | `cards`                          | Rank 1 (Ace) to 13 (King) and suit; `shuffled_deck(rng)` for a 52-card deck |
+| `Game`       | `games.base` (ABC)               | `play(strategies, rng)` plays one full game and returns each player's score |
+| `Strategy`   | `strategies.base` (Protocol)     | `act(observation, rng)` maps what a player can observe to an action         |
+| `simulate`   | `simulation`                     | Plays N seeded games; returns scores of shape `(n_games, n_players)`        |
+| statistics   | `analysis`                       | Means, confidence intervals, split-win rates, paired differences            |
 
-Keep `Game` and `Strategy` independent: any strategy that speaks the game's observation/action
-interface can be evaluated on it, which is what enables comparisons and sweeps.
+A game defines its own `Observation` and action types (e.g. `games.higher_lower`), and its
+strategies live next to it (`strategies.higher_lower`). Any object with a matching `act` method is
+a strategy; no inheritance is needed. Strategies are stateless: everything they may use, such as
+every card revealed so far, is in the observation.
 
 ## Data flow
 
 ```
-Hydra config ──instantiate──► Game + Strategy ──► Simulator ──► episode records (DataFrame/Parquet)
-                                                                       │
-                                                      Analysis ◄───────┘──► report + plots in outputs/
+Hydra config ──instantiate──► Game + strategies ──► simulate ──► scores (n_games x n_players)
+                                                                        │
+                                              summarize / paired_difference ◄┘ ──► log + CSVs in outputs/
 ```
 
 ## Principles
 
-- **Reproducibility:** a master seed is split with `numpy.random.SeedSequence.spawn` into one
-  stream per worker/episode batch, so results do not depend on the worker count.
-- **Statistical rigour:** report mean ± CI and sample size; for strategy comparisons prefer paired
-  designs (same shuffled shoes for both strategies) to reduce variance.
-- **Rules are config:** variants (decks, soft-17, payouts, penetration) are values, not subclasses.
-- **Performance:** start simple and vectorised where natural; profile before optimising.
-  Heavy inner loops can later move to numba or a compiled extension behind the same interfaces.
-- **Testing:** unit tests for rules; seeded, tolerance-based statistical tests against known values
-  (e.g. published Blackjack house edge for given rules) marked `statistical`/`slow`.
+- **Reproducibility:** a master seed is split with `SeedSequence.spawn` into one stream per game, so
+  results do not depend on batching or, later, on the number of workers.
+- **Paired comparisons:** a game draws its setup (shuffle, starting player) from `rng` before any
+  strategy acts, so the same seed always yields the same deal. Runs with the same seed and
+  line-up size can be compared game by game, which is far more precise than comparing two
+  independent confidence intervals.
+- **Statistical rigour:** every estimate is reported with a confidence interval and sample size.
+- **Rules are config:** variants are values in YAML, not subclasses.
+- **Testing:** rules are tested on scripted decks (`HigherLower.play_deck`); statistical tests are
+  seeded, tolerance-based and compared with analytic values (e.g. a random solo player scores 27)
+  or with a ground truth (`OptimalCounting` must not lose to any other strategy solo).

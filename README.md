@@ -4,8 +4,8 @@ A framework for finding optimal play in card games. Define **any** card game fro
 plug in a **strategy**, run **reproducible Monte Carlo simulations** and get **statistically sound
 results** — expected value, house edge, variance, risk of ruin — with confidence intervals and plots.
 
-> **Status:** project scaffold. Tooling, CI and the package layout are in place; the game, strategy
-> and simulation code is yet to be written. See the [roadmap](#roadmap).
+> **Status:** early. The framework core and the first game (Higher-Lower, with five strategies
+> including an optimal baseline) are implemented. See the [roadmap](#roadmap).
 
 ## Design goals
 
@@ -43,17 +43,48 @@ Common tasks (`make help` lists all):
 
 Dependencies are managed with uv: `uv add <pkg>`, `uv add --group dev <pkg>`, then commit `uv.lock`.
 
-## Planned usage
+## Usage
 
 ```bash
-# one experiment
-uv run python -m advantage_play game=blackjack strategy=basic simulation.n_episodes=1_000_000
+# all 5 strategies at one table (the default experiment)
+uv run python -m advantage_play
 
-# compare strategies across rule variants (Hydra multirun)
-uv run python -m advantage_play -m game=blackjack,blackjack_h17 strategy=basic,hi_lo,random
+# a strategy alone through the deck: its raw hit rate
+uv run python -m advantage_play players=solo_counting n_games=100000
+
+# compare strategies solo on identical deals (Hydra multirun, same seed => paired)
+uv run python -m advantage_play -m players=solo_random,solo_trivial,solo_counting
 ```
 
-Each run writes its resolved config, raw results and report to `outputs/<date>/<time>/`.
+Each run logs the mean score and win rate per player with confidence intervals, plus paired score
+differences against the first player, and saves `scores.csv`, `summary.csv` and the resolved
+config to `outputs/<date>/<time>/`. Add a game, strategy or line-up by adding a YAML file in
+`conf/` (see [conf/README.md](conf/README.md)).
+
+Higher-Lower strategies (`strategies/higher_lower.py`, one config per strategy in `conf/strategy/`):
+
+| Strategy | Idea |
+| --- | --- |
+| `random` | Guess higher or lower with equal probability. |
+| `trivial` | Lower above 7, higher below 7, coin flip on 7. |
+| `counting` | Trivial on A-4 and 10-K; on 5-9 follow the count of low vs high cards seen. |
+| `counting_advanced` | Trivial on A-4 and 10-K, count on the 7; on 5, 6, 8, 9 the delta count (10-K minus A-4 seen) decides when to go against the card's own side. |
+| `optimal_counting` | Bet on the side with more cards left in the deck. |
+
+Notes on interpreting results:
+
+- **Ground truth.** `optimal_counting` maximises every single guess, so solo it gives the best
+  possible expected score and no strategy can beat it. At a table with opponents a guess also
+  decides who plays next, so it is not guaranteed to maximise the win rate.
+
+- **Solo vs. multi-player.** In multi-player games the cyclic seat order matters: a player
+  inherits the card that beat the previous player, so who sits before whom shifts the scores. Use
+  solo runs for a clean strategy comparison and multi-player runs for win rates.
+- **Worked example.** [examples/notebooks/higher_lower_strategies.ipynb](examples/notebooks/higher_lower_strategies.ipynb)
+  runs both experiments for all five strategies and plots the results.
+- **Paired comparisons.** Runs with the same `seed` and `n_games` play identical deals, so
+  `analysis.mean_ci(a - b)` on two runs' `scores.csv` gives a far tighter difference than
+  comparing the two confidence intervals.
 
 ## Repository layout
 
@@ -64,7 +95,7 @@ Each run writes its resolved config, raw results and report to `outputs/<date>/<
 │   ├── strategies/       #   decision policies
 │   ├── simulation/       #   seeded, parallel Monte Carlo engine
 │   └── analysis/         #   statistics, CIs, plots, reports
-├── conf/                 # Hydra config groups: game/ strategy/ simulation/ analysis/
+├── conf/                 # Hydra config groups: game/ strategy/ players/
 ├── tests/                # unit/ and integration/ tests, data/ for small fixtures
 ├── examples/notebooks/   # exploratory notebooks
 ├── docs/                 # Sphinx docs (Furo + MyST); API reference is auto-generated from docstrings
@@ -83,14 +114,6 @@ Each run writes its resolved config, raw results and report to `outputs/<date>/<
   `pyproject.toml` → re-runs CI → builds → creates a GitHub release. PyPI publishing (trusted
   publishing) is opt-in via the `PUBLISH_TO_PYPI` repository variable.
 - **Dependabot** keeps Python dependencies and GitHub Actions current.
-
-## Roadmap
-
-1. Cards: `Card`, `Deck`/`Shoe`, seeded shuffling.
-2. Game and strategy interfaces; Blackjack with configurable rules; basic strategy.
-3. Simulation runner with deterministic parallel seeding; Hydra entry point.
-4. Analysis: EV/house edge with CIs, strategy comparison, plots, run reports.
-5. More games, card counting, strategy optimisation (e.g. exhaustive/DP, RL).
 
 ## License
 
